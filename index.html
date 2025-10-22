@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="so">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance System - Machadka Nalfar</title>
+<style>
+    body {
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #0b2e59, #0972ae);
+        color: white;
+        text-align: center;
+        padding: 30px;
+    }
+    h1, h2 {
+        text-shadow: 1px 1px 3px black;
+    }
+    .controls {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    input, button, select {
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        font-size: 15px;
+    }
+    input {
+        width: 200px;
+    }
+    button {
+        background: #ff8c00;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+    button:hover {
+        background: #ffa733;
+        transform: scale(1.05);
+    }
+    table {
+        width: 90%;
+        margin: 20px auto;
+        border-collapse: collapse;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    th, td {
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        padding: 10px;
+        text-align: center;
+        color: white;
+    }
+    th {
+        background: rgba(0, 0, 0, 0.4);
+    }
+</style>
+</head>
+<body>
+    <h1>Sahal Primary & Secondary School</h1>
+
+    <div class="controls">
+        <input type="text" id="studentName" placeholder="Magaca ardayga">
+        <input type="text" id="className" placeholder="Fasalka">
+        <select id="status">
+            <option value="Hadir">Xadir</option>
+            <option value="Maqan">Maqan</option>
+            <option value="Maqan">Xalad kale</option>
+                        <option value="Maqan">Xanuun</option>
+
+
+        </select>
+        <button onclick="addAttendance()">Ku dar</button>
+        <button onclick="saveAttendance()">Save Attendance</button>
+    </div>
+
+    <h2>Xogta Hore ee la keydiyey</h2>
+
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="Raadi arday ama fasal..." onkeyup="filterData()">
+        <input type="date" id="startDate" onchange="filterData()">
+        <input type="date" id="endDate" onchange="filterData()">
+        <button onclick="downloadPDF()">Download PDF</button>
+    </div>
+
+    <table id="savedTable">
+        <thead>
+            <tr>
+                <th>Magaca Ardayga</th>
+                <th>Fasalka</th>
+                <th>Xaalada</th>
+                <th>Taarikhda</th>
+                <th>Delete</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+<script>
+    let attendanceList = JSON.parse(localStorage.getItem("attendanceList")) || [];
+    renderSavedData(attendanceList);
+
+    function addAttendance() {
+        const name = document.getElementById("studentName").value.trim();
+        const className = document.getElementById("className").value.trim();
+        const status = document.getElementById("status").value;
+        const date = new Date().toISOString().split('T')[0]; // yyyy-mm-dd
+
+        if (!name || !className) {
+            alert("Fadlan buuxi magaca iyo fasalka!");
+            return;
+        }
+
+        attendanceList.push({ name, className, status, date });
+        renderSavedData(attendanceList);
+    }
+
+    function saveAttendance() {
+        localStorage.setItem("attendanceList", JSON.stringify(attendanceList));
+        alert("✅ Xogta waa la kaydiyay!");
+    }
+
+    function deleteRow(index) {
+        attendanceList.splice(index, 1);
+        localStorage.setItem("attendanceList", JSON.stringify(attendanceList));
+        renderSavedData(attendanceList);
+    }
+
+    function renderSavedData(list) {
+        const tbody = document.querySelector("#savedTable tbody");
+        tbody.innerHTML = "";
+        list.forEach((item, index) => {
+            const row = `<tr>
+                <td>${item.name}</td>
+                <td>${item.className}</td>
+                <td>${item.status}</td>
+                <td>${item.date}</td>
+                <td><button onclick="deleteRow(${index})">🗑️</button></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    function filterData() {
+        const search = document.getElementById("searchInput").value.toLowerCase();
+        const start = document.getElementById("startDate").value;
+        const end = document.getElementById("endDate").value;
+
+        const filtered = attendanceList.filter(item => {
+            const matchesSearch = item.name.toLowerCase().includes(search) || item.className.toLowerCase().includes(search);
+            const matchesDate =
+                (!start || item.date >= start) &&
+                (!end || item.date <= end);
+            return matchesSearch && matchesDate;
+        });
+
+        renderSavedData(filtered);
+    }
+
+    async function downloadPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const date = new Date().toLocaleDateString();
+        const search = document.getElementById("searchInput").value.toLowerCase();
+        const start = document.getElementById("startDate").value;
+        const end = document.getElementById("endDate").value;
+        const schoolName = "Machadka Nalfar Institute";
+
+        const filteredData = attendanceList.filter(item => {
+            const matchesSearch = item.name.toLowerCase().includes(search) || item.className.toLowerCase().includes(search);
+            const matchesDate =
+                (!start || item.date >= start) &&
+                (!end || item.date <= end);
+            return matchesSearch && matchesDate;
+        });
+
+        if (filteredData.length === 0) {
+            alert("⚠️ Ma jiro xog la waafajiyay raadintaada!");
+            return;
+        }
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text(schoolName, 65, 15);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(12);
+        doc.text("Attendance Weekly Report", 75, 22);
+        doc.text("Date: " + date, 15, 30);
+
+        if (start || end) {
+            doc.text(`Filtered Between: ${start || '—'} and ${end || '—'}`, 15, 36);
+        }
+
+        const tableData = filteredData.map((item, index) => [
+            index + 1,
+            item.name,
+            item.className,
+            item.status,
+            item.date
+        ]);
+
+        doc.autoTable({
+            head: [["#", "Magaca Ardayga", "Fasalka", "Xaalada", "Taarikhda"]],
+            body: tableData,
+            startY: 45,
+            styles: { halign: "center", valign: "middle" },
+            headStyles: { fillColor: [255, 140, 0], textColor: [255, 255, 255] },
+            alternateRowStyles: { fillColor: [245, 245, 245] },
+        });
+
+        doc.save("Attendance_Report.pdf");
+    }
+</script>
+</body>
+</html>
